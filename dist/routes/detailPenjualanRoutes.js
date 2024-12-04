@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const detailPenjualanController_1 = require("../controllers/detailPenjualanController");
+const router = (0, express_1.Router)();
+router.get('/', detailPenjualanController_1.getDetailPenjualan);
+router.get('/:iddetailpenjualan', detailPenjualanController_1.getDetailPenjualanById);
+router.post('/', detailPenjualanController_1.createDetailPenjualan);
+router.put('/:iddetailpenjualan', detailPenjualanController_1.updateDetailPenjualan);
+router.delete('/:iddetailpenjualan', detailPenjualanController_1.deleteDetailPenjualan);
+exports.default = router;

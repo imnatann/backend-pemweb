@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const pembelianController_1 = require("../controllers/pembelianController");
+const router = (0, express_1.Router)();
+router.get('/', pembelianController_1.getPembelian);
+router.get('/:idpembelian', pembelianController_1.getPembelianById);
+router.post('/', pembelianController_1.createPembelian);
+router.put('/:idpembelian', pembelianController_1.updatePembelian);
+router.delete('/:idpembelian', pembelianController_1.deletePembelian);
+exports.default = router;

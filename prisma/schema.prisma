@@ -1,0 +1,134 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model UserSession {
+  idsession    Int       @id @default(autoincrement())
+  iduser       Int
+  user         User      @relation(fields: [iduser], references: [iduser], onDelete: Cascade)
+  token        String    @unique
+  refresh_token String   @unique
+  expires_at   DateTime
+  is_valid     Boolean   @default(true)
+  ip_address   String?
+  user_agent   String?
+  created_at   DateTime  @default(now())
+  updated_at   DateTime? @updatedAt
+
+  @@index([token])
+  @@index([refresh_token])
+}
+
+// Update model User untuk menambahkan relasi dengan UserSession
+model User {
+  iduser       Int           @id @default(autoincrement())
+  username     String        @unique
+  password     String
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+  akses        AksesUser[]
+  penjualan    Penjualan[]
+  pembelian    Pembelian[]
+  sessions     UserSession[] // Tambahkan ini
+}
+
+model AksesUser {
+  idakses      Int           @id @default(autoincrement())
+  iduser       Int?          @unique
+  user         User?         @relation(fields: [iduser], references: [iduser], onDelete: Cascade)
+  role         EnumRole
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+}
+
+model Barang {
+  idbarang     Int           @id @default(autoincrement())
+  namabarang   String
+  kategori     String?
+  hargabeli    Decimal?      @db.Decimal(10, 2)
+  hargajual    Decimal?      @db.Decimal(10, 2)
+  stok         Int           @default(0)
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+  detailpembelian  DetailPembelian[]
+  detailpenjualan DetailPenjualan[]
+}
+
+model Supplier {
+  idsupplier   Int           @id @default(autoincrement())
+  namasupplier String
+  alamat       String?
+  telepon      String?
+  pembelian    Pembelian[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+}
+
+model Customer {
+  idcustomer   Int           @id @default(autoincrement())
+  namacustomer String
+  alamat       String?
+  telepon      String?
+  penjualan    Penjualan[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+}
+
+model Pembelian {
+  idpembelian  Int           @id @default(autoincrement())
+  tanggal      DateTime
+  idsupplier   Int?
+  supplier     Supplier?     @relation(fields: [idsupplier], references: [idsupplier])
+  user         User?         @relation(fields: [iduser], references: [iduser])
+  iduser       Int?
+  detailpembelian  DetailPembelian[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+}
+
+model DetailPembelian {
+  iddetailpembelian Int      @id @default(autoincrement())
+  idpembelian Int?
+  idbarang    Int?
+  pembelian   Pembelian?     @relation(fields: [idpembelian], references: [idpembelian])
+  barang      Barang?        @relation(fields: [idbarang], references: [idbarang])
+  qty         Int
+  hargabeli   Decimal        @db.Decimal(10, 2)
+  created_at  DateTime       @default(now())
+  updated_at  DateTime?      @updatedAt
+}
+
+model Penjualan {
+  idpenjualan  Int           @id @default(autoincrement())
+  tanggal      DateTime
+  idcustomer   Int?
+  customer     Customer?     @relation(fields: [idcustomer], references: [idcustomer])
+  user         User?         @relation(fields: [iduser], references: [iduser])
+  iduser       Int?
+  detailpenjualan  DetailPenjualan[]
+  created_at   DateTime      @default(now())
+  updated_at   DateTime?     @updatedAt
+}
+
+model DetailPenjualan {
+  iddetailpenjualan Int      @id @default(autoincrement())
+  idpenjualan Int?
+  idbarang    Int?
+  penjualan   Penjualan?     @relation(fields: [idpenjualan], references: [idpenjualan])
+  barang      Barang?        @relation(fields: [idbarang], references: [idbarang])
+  qty         Int
+  hargajual   Decimal        @db.Decimal(10, 2)
+  created_at  DateTime       @default(now())
+  updated_at  DateTime?      @updatedAt
+}
+
+enum EnumRole {
+  ADMIN
+  SUPERVISOR
+  KASIR
+}

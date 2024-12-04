@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const aksesUserController_1 = require("../controllers/aksesUserController");
+const router = (0, express_1.Router)();
+router.get('/', aksesUserController_1.getAksesUsers);
+router.get('/:idakses', aksesUserController_1.getAksesUserById);
+router.post('/', aksesUserController_1.createAksesUser);
+router.put('/:idakses', aksesUserController_1.updateAksesUser);
+router.delete('/:idakses', aksesUserController_1.deleteAksesUser);
+exports.default = router;
