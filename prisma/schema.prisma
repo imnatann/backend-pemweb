@@ -48,6 +48,9 @@ model AksesUser {
 
 model Barang {
   idbarang     Int           @id @default(autoincrement())
+  idsupplier Int? 
+  supplier     Supplier?      @relation(fields: [idsupplier], references: [idsupplier], onDelete: Cascade)
+
   namabarang   String
   kategori     String?
   hargabeli    Decimal?      @db.Decimal(10, 2)
@@ -67,6 +70,8 @@ model Supplier {
   pembelian    Pembelian[]
   created_at   DateTime      @default(now())
   updated_at   DateTime?     @updatedAt
+
+  Barang Barang[]
 }
 
 model Customer {

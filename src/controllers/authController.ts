@@ -183,7 +183,7 @@ const generateTokens = (userId: number, role: EnumRole, username: string) => {
             password: !password ? 'Password diperlukan' : null
           }
         });
-        return;
+        return; // Make sure to return here
       }
   
       // Cari user dengan akses
@@ -200,7 +200,7 @@ const generateTokens = (userId: number, role: EnumRole, username: string) => {
           code: 'INVALID_CREDENTIALS',
           message: 'Username atau password salah'
         });
-        return;
+        return; // Make sure to return here
       }
   
       // Verifikasi password
@@ -211,7 +211,7 @@ const generateTokens = (userId: number, role: EnumRole, username: string) => {
           code: 'INVALID_CREDENTIALS',
           message: 'Username atau password salah'
         });
-        return;
+        return; // Make sure to return here
       }
   
       // Generate tokens
@@ -221,49 +221,79 @@ const generateTokens = (userId: number, role: EnumRole, username: string) => {
         user.username
       );
   
-      // Invalidate existing sessions (optional)
-      await prisma.userSession.updateMany({
-        where: {
-          iduser: user.iduser,
-          is_valid: true,
-        },
-        data: {
-          is_valid: false,
-        },
-      });
+      try {
+        // Invalidate existing sessions (optional)
+        await prisma.userSession.updateMany({
+          where: {
+            iduser: user.iduser,
+            is_valid: true,
+          },
+          data: {
+            is_valid: false,
+          },
+        });
   
-      // Create new session
-      const session = await createSession(
-        user.iduser,
-        accessToken,
-        refreshToken,
-        req
-      );
+        // Create new session
+        const session = await createSession(
+          user.iduser,
+          accessToken,
+          refreshToken,
+          req
+        );
   
-      res.json({
-        status: 'success',
-        message: 'Login berhasil',
-        data: {
-          access_token: accessToken,
-          refresh_token: refreshToken,
-          expires_at: session.expires_at,
-          user: {
-            id: user.iduser,
-            username: user.username,
-            role: user.akses[0].role,
-            created_at: user.created_at
+        // Set cookies first
+        res.cookie('access_token', accessToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 60 * 60 * 1000, // 1 hour
+        });
+  
+        res.cookie('refresh_token', refreshToken, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+  
+        // Then send the JSON response (only once!)
+        res.json({
+          status: 'success',
+          message: 'Login berhasil',
+          data: {
+            access_token: accessToken,
+            refresh_token: refreshToken,
+            expires_at: session.expires_at,
+            user: {
+              id: user.iduser,
+              username: user.username,
+              role: user.akses[0].role,
+              created_at: user.created_at
+            }
           }
-        }
-      });
+        });
+      } catch (error) {
+        // Handle session creation error
+        console.error('Session creation error:', error);
+        res.status(500).json({
+          status: 'error',
+          code: 'SESSION_ERROR',
+          message: 'Gagal membuat session'
+        });
+        return;
+      }
   
     } catch (error) {
       console.error('Login Error:', error);
-      res.status(500).json({
-        status: 'error',
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Terjadi kesalahan internal server',
-        details: process.env.NODE_ENV === 'development' ? error : undefined
-      });
+      // Only send error response if no response has been sent yet
+      if (!res.headersSent) {
+        res.status(500).json({
+          status: 'error',
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Terjadi kesalahan internal server',
+          details: process.env.NODE_ENV === 'development' ? error : undefined
+        });
+      }
     }
   };
   

@@ -11,23 +11,31 @@ interface AuthRequest extends Request {
 
 // Middleware untuk memverifikasi token JWT
 export const authenticateToken = (req: AuthRequest, res: Response, next: NextFunction): void => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Format: Bearer TOKEN
+  try {
+    const authHeader = req.headers['authorization'];
+    const tokenFromHeader = authHeader && authHeader.split(' ')[1];
+    const tokenFromCookie = req.cookies?.access_token; // Gunakan optional chaining
+    const token = tokenFromHeader || tokenFromCookie;
 
-  if (!token) {
-    res.status(401).json({ error: 'Token tidak ditemukan.' });
-    return;
-  }
-
-  jwt.verify(token, process.env.JWT_SECRET as string, (err, user: any) => {
-    if (err) {
-      res.status(403).json({ error: 'Token tidak valid.' });
+    if (!token) {
+      res.status(401).json({ error: 'Token tidak ditemukan.' });
       return;
     }
-    req.user = user;
-    next();
-  });
+
+    jwt.verify(token, process.env.JWT_SECRET as string, (err: any, decoded: any) => {
+      if (err) {
+        res.status(403).json({ error: 'Token tidak valid.' });
+        return;
+      }
+      req.user = decoded;
+      next();
+    });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 };
+
 
 // Middleware untuk otorisasi berdasarkan peran
 export const authorizeRoles = (roles: string[]) => {

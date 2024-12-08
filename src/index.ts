@@ -17,6 +17,8 @@ import penjualanRoutes from './routes/penjualanRoutes';
 import detailPembelianRoutes from './routes/detailPembelianRoutes';
 import detailPenjualanRoutes from './routes/detailPenjualanRoutes';
 import stokRoutes from './routes/stokRoutes';
+import cookieParser from 'cookie-parser';
+
 
 dotenv.config();
 
@@ -55,6 +57,9 @@ app.use((req, res, next) => {
   console.log(`${req.method} ${req.url}`);
   next();
 });
+
+app.use(cookieParser()); // Tambahkan ini sebelum routes
+
 
 // Routes
 app.use('/auth', authRoutes);

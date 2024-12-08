@@ -10,11 +10,35 @@ export const getPembelian = async (req: Request, res: Response) => {
       include: {
         supplier: true,
         user: true,
-        detailpembelian: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
+      },
+      orderBy: {
+        tanggal: 'desc',
       },
     });
-    res.json(pembelian);
+
+    // Hitung total untuk setiap pembelian
+    const pembelianWithTotal = pembelian.map(p => {
+      const total = p.detailpembelian.reduce((sum, detail) => {
+        const hargabeli = typeof detail.hargabeli === 'number' 
+          ? detail.hargabeli 
+          : parseFloat(detail.hargabeli.toString());
+        return sum + (detail.qty * hargabeli);
+      }, 0);
+
+      return {
+        ...p,
+        total,
+      };
+    });
+
+    res.json(pembelianWithTotal);
   } catch (error) {
+    console.error('Error getting pembelian:', error);
     res.status(500).json({ error: 'Gagal mengambil data pembelian.' });
   }
 };
@@ -28,11 +52,26 @@ export const getPembelianById = async (req: Request, res: Response) => {
       include: {
         supplier: true,
         user: true,
-        detailpembelian: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
+
     if (pembelian) {
-      res.json(pembelian);
+      const total = pembelian.detailpembelian.reduce((sum, detail) => {
+        const hargabeli = typeof detail.hargabeli === 'number' 
+          ? detail.hargabeli 
+          : parseFloat(detail.hargabeli.toString());
+        return sum + (detail.qty * hargabeli);
+      }, 0);
+
+      res.json({
+        ...pembelian,
+        total,
+      });
     } else {
       res.status(404).json({ error: 'Pembelian tidak ditemukan.' });
     }
@@ -43,8 +82,9 @@ export const getPembelianById = async (req: Request, res: Response) => {
 
 // POST /pembelian - Tambah pembelian baru dan update stok
 export const createPembelian = async (req: Request, res: Response) => {
-    const { tanggal, idsupplier, iduser, detailpembelian } = req.body;
-    
+  const { tanggal, idsupplier, iduser, detailpembelian } = req.body;
+  
+  try {
     // Mulai transaksi Prisma
     const transaction = await prisma.$transaction(async (prisma) => {
       // Buat pembelian
@@ -64,10 +104,14 @@ export const createPembelian = async (req: Request, res: Response) => {
         include: {
           supplier: true,
           user: true,
-          detailpembelian: true,
+          detailpembelian: {
+            include: {
+              barang: true,
+            },
+          },
         },
       });
-  
+
       // Update stok barang
       for (const detail of detailpembelian) {
         await prisma.barang.update({
@@ -79,21 +123,30 @@ export const createPembelian = async (req: Request, res: Response) => {
           },
         });
       }
-  
-      return newPembelian;
+
+      const total = newPembelian.detailpembelian.reduce((sum, detail) => {
+        const hargabeli = typeof detail.hargabeli === 'number' 
+          ? detail.hargabeli 
+          : parseFloat(detail.hargabeli.toString());
+        return sum + (detail.qty * hargabeli);
+      }, 0);
+
+      return {
+        ...newPembelian,
+        total,
+      };
     });
-  
-    try {
-      res.status(201).json(transaction);
-    } catch (error) {
-      res.status(500).json({ error: 'Gagal menambahkan pembelian.' });
-    }
-  };
+
+    res.status(201).json(transaction);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message || 'Gagal menambahkan pembelian.' });
+  }
+};
 
 // PUT /pembelian/:idpembelian - Perbarui pembelian
 export const updatePembelian = async (req: Request, res: Response) => {
   const { idpembelian } = req.params;
-  const { tanggal, idsupplier, iduser, detailpembelian } = req.body;
+  const { tanggal, idsupplier, iduser } = req.body;
   try {
     const updatedPembelian = await prisma.pembelian.update({
       where: { idpembelian: parseInt(idpembelian) },
@@ -101,15 +154,29 @@ export const updatePembelian = async (req: Request, res: Response) => {
         tanggal: tanggal ? new Date(tanggal) : undefined,
         idsupplier: idsupplier ? parseInt(idsupplier) : undefined,
         iduser: iduser ? parseInt(iduser) : undefined,
-        // Untuk detailpembelian, biasanya kita perlu handling terpisah (create/update/delete)
       },
       include: {
         supplier: true,
         user: true,
-        detailpembelian: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
-    res.json(updatedPembelian);
+
+    const total = updatedPembelian.detailpembelian.reduce((sum, detail) => {
+      const hargabeli = typeof detail.hargabeli === 'number' 
+        ? detail.hargabeli 
+        : parseFloat(detail.hargabeli.toString());
+      return sum + (detail.qty * hargabeli);
+    }, 0);
+
+    res.json({
+      ...updatedPembelian,
+      total,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Gagal memperbarui pembelian.' });
   }

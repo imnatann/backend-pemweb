@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { getAllStok, getLowStock, getStokById, updateStok } from '../controllers/stokController';
+import { authenticateToken } from '../middleware/authMiddleware';
+
 
 const router = Router();
 

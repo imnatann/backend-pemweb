@@ -1,41 +1,78 @@
 import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
+
+interface DetailPembelianWithTotal {
+  sum: number;
+  detail: {
+    qty: number;
+    hargabeli: number | string;
+  };
+}
 
 // GET /detailpembelian - Ambil semua detail pembelian
 export const getDetailPembelian = async (req: Request, res: Response) => {
   try {
-    const detailPembelian = await prisma.detailPembelian.findMany({
+    const pembelian = await prisma.pembelian.findMany({
       include: {
-        pembelian: true,
-        barang: true,
+        supplier: true,
+        user: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
-    res.json(detailPembelian);
+
+    // Calculate total for each pembelian
+    const pembelianWithTotal = pembelian.map(p => ({
+      ...p,
+      total: p.detailpembelian.reduce((sum: number, detail: any) => 
+        sum + (detail.qty * parseFloat(detail.hargabeli.toString())), 0
+      ),
+    }));
+
+    res.json(pembelianWithTotal);
   } catch (error) {
-    res.status(500).json({ error: 'Gagal mengambil data detail pembelian.' });
+    res.status(500).json({ error: 'Gagal mengambil data pembelian.' });
   }
 };
 
-// GET /detailpembelian/:iddetailpembelian - Ambil detail pembelian tertentu
+// GET /detailpembelian/:idpembelian - Ambil detail pembelian tertentu
 export const getDetailPembelianById = async (req: Request, res: Response) => {
-  const { iddetailpembelian } = req.params;
+  const { idpembelian } = req.params;
   try {
-    const detailPembelian = await prisma.detailPembelian.findUnique({
-      where: { iddetailpembelian: parseInt(iddetailpembelian) },
+    const pembelian = await prisma.pembelian.findUnique({
+      where: { 
+        idpembelian: parseInt(idpembelian) 
+      },
       include: {
-        pembelian: true,
-        barang: true,
+        supplier: true,
+        user: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
-    if (detailPembelian) {
-      res.json(detailPembelian);
+
+    if (pembelian) {
+      const total = pembelian.detailpembelian.reduce((sum: number, detail: any) => 
+        sum + (detail.qty * parseFloat(detail.hargabeli.toString())), 0
+      );
+
+      res.json({
+        ...pembelian,
+        total,
+      });
     } else {
-      res.status(404).json({ error: 'Detail Pembelian tidak ditemukan.' });
+      res.status(404).json({ error: 'Pembelian tidak ditemukan.' });
     }
   } catch (error) {
-    res.status(500).json({ error: 'Gagal mengambil data detail pembelian.' });
+    res.status(500).json({ error: 'Gagal mengambil data pembelian.' });
   }
 };
 
@@ -45,17 +82,38 @@ export const createDetailPembelian = async (req: Request, res: Response) => {
   try {
     const newDetailPembelian = await prisma.detailPembelian.create({
       data: {
-        idpembelian: idpembelian ? parseInt(idpembelian) : undefined,
-        idbarang: idbarang ? parseInt(idbarang) : undefined,
+        idpembelian: parseInt(idpembelian),
+        idbarang: parseInt(idbarang),
         qty,
         hargabeli: parseFloat(hargabeli),
       },
+    });
+
+    const pembelian = await prisma.pembelian.findUnique({
+      where: { 
+        idpembelian: parseInt(idpembelian)
+      },
       include: {
-        pembelian: true,
-        barang: true,
+        supplier: true,
+        user: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
-    res.status(201).json(newDetailPembelian);
+
+    if (pembelian) {
+      const total = pembelian.detailpembelian.reduce((sum: number, detail: any) => 
+        sum + (detail.qty * parseFloat(detail.hargabeli.toString())), 0
+      );
+
+      res.status(201).json({
+        ...pembelian,
+        total,
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Gagal menambahkan detail pembelian.' });
   }
@@ -74,25 +132,70 @@ export const updateDetailPembelian = async (req: Request, res: Response) => {
         qty,
         hargabeli: hargabeli ? parseFloat(hargabeli) : undefined,
       },
+    });
+
+    const pembelian = await prisma.pembelian.findUnique({
+      where: { 
+        idpembelian: updatedDetailPembelian.idpembelian ?? undefined
+      },
       include: {
-        pembelian: true,
-        barang: true,
+        supplier: true,
+        user: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
       },
     });
-    res.json(updatedDetailPembelian);
+
+    if (pembelian) {
+      const total = pembelian.detailpembelian.reduce((sum: number, detail: any) => 
+        sum + (detail.qty * parseFloat(detail.hargabeli.toString())), 0
+      );
+
+      res.json({
+        ...pembelian,
+        total,
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Gagal memperbarui detail pembelian.' });
   }
 };
-
 // DELETE /detailpembelian/:iddetailpembelian - Hapus detail pembelian
 export const deleteDetailPembelian = async (req: Request, res: Response) => {
   const { iddetailpembelian } = req.params;
   try {
-    await prisma.detailPembelian.delete({
+    const deletedDetail = await prisma.detailPembelian.delete({
       where: { iddetailpembelian: parseInt(iddetailpembelian) },
     });
-    res.json({ message: 'Detail Pembelian berhasil dihapus.' });
+
+    const pembelian = await prisma.pembelian.findUnique({
+      where: { 
+        idpembelian: deletedDetail.idpembelian ?? undefined
+      },
+      include: {
+        supplier: true,
+        user: true,
+        detailpembelian: {
+          include: {
+            barang: true,
+          },
+        },
+      },
+    });
+
+    if (pembelian) {
+      const total = pembelian.detailpembelian.reduce((sum: number, detail: any) => 
+        sum + (detail.qty * parseFloat(detail.hargabeli.toString())), 0
+      );
+
+      res.json({
+        ...pembelian,
+        total,
+      });
+    }
   } catch (error) {
     res.status(500).json({ error: 'Gagal menghapus detail pembelian.' });
   }
